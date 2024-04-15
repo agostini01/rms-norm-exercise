@@ -1,0 +1,6 @@
+ipykernel
+numpy
+scikit-learn
+matplotlib
+tensorboard
+regex

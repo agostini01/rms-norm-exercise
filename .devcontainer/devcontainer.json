@@ -1,0 +1,54 @@
+{
+  "name": "CUDA",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "UBUNTU_VERSION": "22.04",
+      "CUDA_VERSION": "12.1.1",
+      "CUDNN_V" : "8",
+      "CUDNN_VERSION": "8.9.2.26",
+      "PYTHON_VERSION": "3.11"
+    }
+  },
+  // "features": {
+  //   "ghcr.io/devcontainers/features/nvidia-cuda:1": {
+  //     "cudaVersion": "12.1.1",
+  //     "cudnnVersion": "8.9.2.26"
+  //   }
+  // },
+  "runArgs": [
+    "--gpus=all",
+    "--rm",
+    "--cap-add=SYS_ADMIN",
+    "--network=host",
+    "--security-opt",
+    "seccomp=unconfined"
+  ],
+  // "remoteEnv": {
+  //   "PATH": "${containerEnv:PATH}:/usr/local/cuda/bin",
+  //   "LD_LIBRARY_PATH": "$LD_LIBRARY_PATH:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64",
+  //   "XLA_FLAGS": "--xla_gpu_cuda_data_dir=/usr/local/cuda"
+  // },
+  // "updateContentCommand": "bash .devcontainer/install-dev-tools.sh",
+  "postCreateCommand": [
+    "nvidia-smi"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.makefile-tools",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+  //       "ms-python.python",
+  //       "ms-toolsai.jupyter",
+  //       "ms-toolsai.vscode-jupyter-cell-tags",
+  //       "ms-toolsai.jupyter-keymap",
+  //       "ms-toolsai.jupyter-renderers",
+  //       "ms-toolsai.vscode-jupyter-slideshow",
+  //       "nvidia.nsight-vscode-edition"
+      ]
+    }
+  }
+}
