@@ -8,7 +8,16 @@ GEN_OUTPUTS=cuda.cuda.o main.o square_matrix_extension.so .ninja_deps .ninja_log
 GEN_OUTPUTS := $(addprefix $(GENDIR)/,$(GEN_OUTPUTS))
 
 run: folders
-	python3 $(PYSRC)
+	python $(PYSRC)
+
+$(GENDIR)/main.o: $(PYSRC)
+	python $<
+
+ncu: $(PYSRC) $(GENDIR)/main.o
+	ncu --set full -f -o prof/prof python $<
+
+nsys: $(PYSRC) $(GENDIR)/main.o
+	nsys profile --stats=true --force-overwrite true -o prof/prof python $<
 
 .PHONY: folders
 folders:
