@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/opt/pytorch/pytorch",
-                "/opt/pytorch/pytorch/torch/csrc/api/include"
+                "/opt/pytorch/pytorch/torch/csrc/api/include",
+                "/opt/pytorch/pytorch/aten/src",
+                "/usr/local/lib/python3.10/dist-packages/torch/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
