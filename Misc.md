@@ -1,9 +1,12 @@
-I am trying to understand if I have to use wsl cuda deb file or simply the regular cuda.
+We leverage nvidia provided images, however you can set them up yourself.
+This would require to modify the provided `Dockerfile`
 
-My idea is to run a docker .devcontainer with cuda.
+# CUDA Installation
 
+## When using WSL
 
-This is the link to download the cuda deb file for wsl:
+If are using WSL, you dont want the image to overwite some files leverage from windows.
+Please check this link:
 
 https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=WSL-Ubuntu&target_version=2.0&target_type=deb_local
 
@@ -19,6 +22,7 @@ sudo apt-get update
 sudo apt-get -y install cuda-toolkit-12-4
 ```
 
+## Linux
 
 For simple cuda, I would use the following link:
 
@@ -56,7 +60,3 @@ sudo apt-get install -y cuda-drivers-550
 ```
 https://github.com/pytorch/pytorch/blob/0dfe72c63ba45c75e3cfc5f4330577fa7448dcba/.ci/docker/build.sh#L94
 ```
-
-# Vscode extensions:
-
-https://github.com/devcontainers/features/blob/main/src/nvidia-cuda/README.md
