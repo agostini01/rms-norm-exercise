@@ -1,0 +1,3 @@
+gen/.ninja*
+gen/*.o
+gem/*.so
