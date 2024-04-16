@@ -36,6 +36,8 @@ torch::Tensor square_matrix(torch::Tensor matrix) {
 cpp_source = "torch::Tensor square_matrix(torch::Tensor matrix);"
 
 # Load the CUDA kernel as a PyTorch extension
+print("Compiling the cuda kernel.")
+print("In the first time this may take a while as it links a big .so file...")
 square_matrix_extension = load_inline(
     name='square_matrix_extension',
     cpp_sources=cpp_source,
