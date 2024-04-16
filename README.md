@@ -1,8 +1,10 @@
 # Dev Container NVIDIA Torch
 
-This is an example of how to set up an NVIDIA VSCode DevContainer with GPU support for PyTorch and profiling.
+This is an example of how to set up an NVIDIA VSCode DevContainer with GPU
+support for PyTorch and profiling.
 
-The `examples` folder contains several examples of how to compile CUDA kernels within PyTorch, showcasing profiling when possible.
+The `examples` folder contains several examples of how to compile CUDA kernels
+within PyTorch, showcasing profiling when possible.
 
 
 ## Prerequisites
@@ -38,16 +40,23 @@ make nsys # to profile the whole application
 
 ## Visualize the profiling results
 
-Install nsight-sys and nsight-compute on your local machine and open the files generated in `examples/<app>/prof` folder
+Install nsight-sys and nsight-compute on your **local machine**, then use the
+tools to open the files located in the `examples/<app>/prof` folder.
 
 
 ## Setup details
 
-We leverage the NVIDIA CUDA image, which contains CUDA and PyTorch dependencies installed. See the [Dockerfile](.devcontainer/Dockerfile) for more details.
+We leverage the NVIDIA CUDA image, which contains CUDA and PyTorch dependencies
+installed. See the [Dockerfile](.devcontainer/Dockerfile) for more details.
 
 
 ### Additional Python packages
-The file `.devcontainer/requirements.txt` contains all third party Python packages you wish to install. Modify the list as you like and uncoment the "updateContentCommand" line in [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json) to install the packages.
+
+The file `.devcontainer/requirements.txt` contains all third party Python
+packages you wish to install. Modify the list as you like and uncoment the
+"updateContentCommand" line in
+[`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json) to install
+the packages.
 
 ```
 # Example: Minimal deps for tensorflow
