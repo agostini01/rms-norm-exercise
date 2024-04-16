@@ -1,22 +1,26 @@
 # Dev Container NVIDIA Torch
 
-That is an example of how to setup a NVIDIA DevContainer with GPU Support for PyTorch.
+This is an example of how to set up an NVIDIA VSCode DevContainer with GPU support for PyTorch and profiling.
+
 
 ## Prerequisites
 
-- Docker engine (and setup .wslconfig to use more cores and memory than default)
-- NVIDIA driver for the graphic card
-- NVIDIA Container Toolkit (which is already included in Windows’ Docker Desktop; Linux users have to install it)
-- VS Code with DevContainer extension installed
+- Docker engine (and set up .wslconfig to use more cores and memory than default)
+- NVIDIA driver for the graphics card
+- NVIDIA Container Toolkit (which may be already included in Windows' Docker Desktop; Linux users will need to install it)
+- VSCode with the DevContainer extension installed
 - Follow the instructions to enable hardware counters profiling presented [here](https://developer.nvidia.com/nvidia-development-tools-solutions-err_nvgpuctrperm-permission-issue-performance-counters)
-  - On windows this involves updating settings on the NVIDIA Control Panel and **rebooting** the computer
+  - On Windows, this involves updating settings on the NVIDIA Control Panel and **rebooting** the computer
+
 
 ## Start the DevContainer
-- Clone this repo.
-- In VS Code press `Ctrl + Shift + P` to bring up the Command Palette. 
-- Enter and find `Dev Containers: Reopen in Container`. 
-- VS Code will download the docker CUDA image, run the install dependencies, and open the directory in DevContainer.
-- The DevContainer then runs `nvidia-smi` to show what GPU can be seen by the container.
+
+- Clone this repo
+- In VSCode, press `ctrl + shift + P` or `cmd + shift + P` to bring up the Command Palette.
+- Enter and find `Dev Containers: Reopen in Container`.
+- VSCode will download the Docker CUDA image, install the dependencies, and open the directory in the DevContainer
+- The DevContainer will then run `nvidia-smi` to display the GPU that the container can access
+
 
 ## Navigate to an example folder
 
@@ -29,10 +33,10 @@ make ncu # to profile the kernel
 make nsys # to profile the whole application
 ```
 
+
 ## Visualize the profiling results
 
 Install nsight-sys and nsight-compute on your local machine and open the files generated in `examples/<app>/prof` folder
-
 
 
 ## Setup details
@@ -44,6 +48,7 @@ We leverage the NVIDIA CUDA image, which contains CUDA and PyTorch dependencies 
 The file `.devcontainer/requirements.txt` contains all third party Python packages you wish to install. Modify the list as you like and uncoment the "updateContentCommand" line in [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json) to install the packages.
 
 ```
+# Example: Minimal deps for tensorflow
 numpy
 scikit-learn
 matplotlib
