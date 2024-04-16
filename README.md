@@ -15,8 +15,8 @@ That is an example of how to setup a NVIDIA DevContainer with GPU Support for Py
 - Clone this repo.
 - In VS Code press `Ctrl + Shift + P` to bring up the Command Palette. 
 - Enter and find `Dev Containers: Reopen in Container`. 
-- VS Code will starts to download the CUDA image, run the script and install everything, and finish opening the directory in DevContainer.
-- The DevContainer would then run nvidia-smi to show what GPU can be seen by the container. Be noted that this works even without setting up cuDNN or any environment variables.
+- VS Code will download the docker CUDA image, run the install dependencies, and open the directory in DevContainer.
+- The DevContainer then runs `nvidia-smi` to show what GPU can be seen by the container.
 
 ## Navigate to an example folder
 
@@ -60,3 +60,4 @@ This project leveraged the following sources:
 - [Nsisght Compute Docker Image](https://github.com/leimao/Nsight-Compute-Docker-Image)
 - [Setup a NVIDIA DevContainer with GPU Support for Tensorflow/Keras on Windows](https://alankrantas.medium.com/setup-a-nvidia-devcontainer-with-gpu-support-for-tensorflow-keras-on-windows-d00e6e204630)
 - [NVIDIA CUDA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- [profiling-cuda-in-torch](https://github.com/cuda-mode/profiling-cuda-in-torch)
