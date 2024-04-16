@@ -2,6 +2,8 @@
 
 This is an example of how to set up an NVIDIA VSCode DevContainer with GPU support for PyTorch and profiling.
 
+The `examples` folder contains several examples of how to compile CUDA kernels within PyTorch, showcasing profiling when possible.
+
 
 ## Prerequisites
 
