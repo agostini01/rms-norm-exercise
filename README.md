@@ -18,13 +18,13 @@ That is an example of how to setup a NVIDIA DevContainer with GPU Support for Py
 - VS Code will starts to download the CUDA image, run the script and install everything, and finish opening the directory in DevContainer.
 - The DevContainer would then run nvidia-smi to show what GPU can be seen by the container. Be noted that this works even without setting up cuDNN or any environment variables.
 
-## Navigate to a example folder
+## Navigate to an example folder
 
 Use `make` to compile and profile the code.
 
 ```bash
 cd examples/gemm-cuda
-make # to compile the code
+make # to compile (or run) the (python) code
 make ncu # to profile the kernel
 make nsys # to profile the whole application
 ```
