@@ -33,7 +33,7 @@
   // },
   // [optional] This command is run after the container is created. It is used
   // to install additional tools required for the development environment.
-  // "updateContentCommand": "bash .devcontainer/install-dev-tools.sh",
+  "updateContentCommand": "bash .devcontainer/install-dev-tools.sh",
   "postCreateCommand": [
     "nvidia-smi"
   ],
@@ -44,14 +44,14 @@
         "ms-azuretools.vscode-docker",
         "ms-vscode.cpptools-extension-pack",
         "ms-python.python",
-        "ms-python.vscode-pylance"
-  //       "ms-python.python",
-  //       "ms-toolsai.jupyter",
-  //       "ms-toolsai.vscode-jupyter-cell-tags",
-  //       "ms-toolsai.jupyter-keymap",
-  //       "ms-toolsai.jupyter-renderers",
-  //       "ms-toolsai.vscode-jupyter-slideshow",
-  //       "nvidia.nsight-vscode-edition"
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "ms-toolsai.vscode-jupyter-cell-tags",
+        "ms-toolsai.jupyter-keymap",
+        "ms-toolsai.jupyter-renderers",
+        "ms-toolsai.vscode-jupyter-slideshow",
+        "ms-toolsai.tensorboard"
+        // ,"nvidia.nsight-vscode-edition"
       ]
     }
   }

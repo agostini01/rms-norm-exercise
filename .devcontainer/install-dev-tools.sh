@@ -34,6 +34,6 @@ pip3 install --user -r .devcontainer/requirements.txt
 #     libx11-dev libxmu-dev libxi-dev libglu1-mesa libglu1-mesa-dev libfreeimage-dev -y
 
 # Clean up - for smaller image size
-pip3 cache purge
-apt-get autoremove -y
-apt-get clean
+# pip3 cache purge # not needed since cache is already disabled
+# sudo apt-get autoremove -y
+# sudo apt-get clean
