@@ -59,6 +59,44 @@ class RMSNorm(nn.Module):
 ![LLama2 Architecture](res/llama-arch.png)
 Image from: https://github.com/hkproj/pytorch-llama/blob/main/Slides.pdf
 
+## Assignment
+
+- Implement RMSNorm in CUDA, for 3D tensors using half precision
+- Document thought process
+- Identify and discuss potential optimizations
+- Model size refered to as Dim is `>=4096` and multiple of `32`
+
+## Thought Process
+
+0. Setup some profiling infrastructure
+    - `torch.profiler` and `nsys` for "end-to-end"
+    - `ncu` for kernel evaluation
+    - I will start by keeping `Dim` constant and varying `SeqLen`, with `Batch Size of 1`
+1. Study and Implement RMSNorm in python to serve as a baseline
+2. Since we have 3D tensors as inputs, I assume the dimensions (B, SeqLen, Dim)
+    - `B` represents number of batches
+        - All batches are assumed to have the **same** size of **(SeqLen, Dim)**
+    - `SeqLen` represents the size of the sequence, i.e. tokens in a batch
+    - `Dim` represents the size of the embeddings to represent a token
+        - Also represents the size of the trainable parameter (weights) vector $\bar{g}$
+3. All inputs are computed against the same $\bar{g}$ weights
+        - The same set of learnable scaling factors ($g_i$) would be applied to all input vectors in the sequence
+4. It makes sense to keep the $\bar{g}$ in GPU Memmory, and reuse the values until we go over all (B, SeqLen, : ) examples
+5. The RMSNorm has many subkernels, some depend on the weights. Fusion can be relevant so we can re-use intermediate results when possible.
+6. I will start by implementing each kernel individually, from innermost to outermost
+    1. square
+    2. mean (reduction('+') then devide by N)
+    3. add single scalar (eps)
+    4. sqrt
+    5. inverse
+    6. element_wise multiply
+7. Many of these kernels can reuse builtin libraries from [CUB](https://nvidia.github.io/cccl/cub/modules.html). We can also implement these kernels with [Triton](https://github.com/openai/triton)
+
+## Additional/Potential Optimizations
+
+- Fusion of kernels
+- Keeping weights in shared memory
+- Reduction can leverage a parallel implementation
 
 
 ## Additional Resources
