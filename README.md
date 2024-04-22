@@ -2,7 +2,7 @@
 
 Root Mean Square (RMS) normalization is a technique used to normalize the
 amplitude of a signal. It is used in many signal processing applications, such
-as audio processing, image processing, and data analysis.  It is also a layer in the `LLama2` model, which is a state-of-the-art model for machine translation.
+as audio processing, image processing, and data analysis.  It is also a layer in the `LLama2` model, which is a state-of-the-art Gen AI model.
 
 In the [paper](https://dl.acm.org/doi/pdf/10.5555/3454287.3455397) "Root Mean Square Layer Normalization" by Zhang and Sennrich, the authors hypothesize that the re-scaling invariance is the reason for success of LayerNorm, rather than re-centering invariance. As such, they propose a new normalization technique called Root Mean Square Layer Normalization (RMSNorm) that normalizes the input activations to have unit root mean square (RMS) value.
 
@@ -241,7 +241,7 @@ To visualize MLFlow artifacts...
 # In host, bind the port 5000 to remote
 ssh -N -L 5000:localhost:5000 <server_username>@<server_ip>
 # Enter the directory that contains a `mlruns` folder
-cd noteboos
+cd notebook
 # Start MLFlow on docker
 docker run --rm --entrypoint mlflow -e MLFLOW_HOST="0.0.0.0" -v $(pwd):/workspaces/rms-norm-exercise/notebooks -w /workspaces/rms-norm-exercise/notebooks -p 5000:5000 ghcr.io/mlflow/mlflow:latest server
 ```
