@@ -184,8 +184,8 @@ I proceded on implementing all operation of RMSNorm in a fused triton kernel. Re
 The graphs below use the same baselines as above, but Triton represents my fused implementation.
 
 <p float="left">
-  <img src="./res/artifacts/initial_impl/artifacts/runtime.png" width="50%" />
-  <img src="./res/artifacts/initial_impl/artifacts/bandwidth.png" width="50%" /> 
+  <img src="./res/artifacts/final_impl/artifacts/runtime.png" width="50%" />
+  <img src="./res/artifacts/final_impl/artifacts/bandwidth.png" width="50%" /> 
 </p>
 
 - We have very high memory BW even for small kernels (**again, ignore the absolute value**).
