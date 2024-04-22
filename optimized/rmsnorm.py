@@ -6,7 +6,7 @@ import triton.language as tl
 
 @triton.jit
 def square_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_cols, BLOCK_SIZE: tl.constexpr):
-	# The rows of the softmax are independent, so we parallelize across those
+	# The rows are independent, so we parallelize across those
 	row_idx = tl.program_id(0)
 	# The stride represents how much we need to increase the pointer to advance 1 row
 	row_start_ptr = input_ptr + row_idx * input_row_stride
@@ -24,6 +24,49 @@ def square_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_
 	output_ptrs = output_row_start_ptr + col_offsets
 	tl.store(output_ptrs, square_output, mask=col_offsets < n_cols)
 
+@triton.jit
+def mean_of_squares_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_cols, eps, BLOCK_SIZE: tl.constexpr):
+	# The rows are independent, so we parallelize across those
+	row_idx = tl.program_id(0)
+	# The stride represents how much we need to increase the pointer to advance 1 row
+	row_start_ptr = input_ptr + row_idx * input_row_stride
+	# The block size is the next power of two greater than n_cols, so we can fit each
+	# row in a single block
+	col_offsets = tl.arange(0, BLOCK_SIZE)
+	input_ptrs = row_start_ptr + col_offsets
+	# Load the row into SRAM, using a mask since BLOCK_SIZE may be > than n_cols
+	row = tl.load(input_ptrs, mask=col_offsets < n_cols, other=-float('inf'))
+	tl.debug_barrier()
+
+	square_output = row * row
+	mean_output = tl.sum(square_output)/n_cols + eps
+	
+	# Write back output to DRAM
+	output_row_start_ptr = output_ptr + row_idx * output_row_stride # TODO: optimization: always 1 after the reduction
+	output_ptrs = output_row_start_ptr + col_offsets
+	tl.store(output_ptrs, mean_output, mask=col_offsets < n_cols)
+
+@triton.jit
+def rms_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_cols, eps, BLOCK_SIZE: tl.constexpr):
+	# The rows are independent, so we parallelize across those
+	row_idx = tl.program_id(0)
+	# The stride represents how much we need to increase the pointer to advance 1 row
+	row_start_ptr = input_ptr + row_idx * input_row_stride
+	# The block size is the next power of two greater than n_cols, so we can fit each
+	# row in a single block
+	col_offsets = tl.arange(0, BLOCK_SIZE)
+	input_ptrs = row_start_ptr + col_offsets
+	# Load the row into SRAM, using a mask since BLOCK_SIZE may be > than n_cols
+	row = tl.load(input_ptrs, mask=col_offsets < n_cols, other=-float('inf'))
+	tl.debug_barrier()
+
+	square_output = row * row
+	rms = tl.sqrt(tl.sum(square_output)/n_cols + eps)
+	
+	# Write back output to DRAM
+	output_row_start_ptr = output_ptr + row_idx * output_row_stride # TODO: optimization: always 1 after the reduction
+	output_ptrs = output_row_start_ptr + col_offsets
+	tl.store(output_ptrs, rms, mask=col_offsets < n_cols)
 
 class RMSNormTriton(nn.Module):
 	def __init__(self, dim: int, eps: float = 1e-6):
@@ -46,6 +89,8 @@ class RMSNormTriton(nn.Module):
 	
 	
 	def _square(self, x):
+		"""Square the input tensor element-wise."""
+
 		# Flatten the tensor except for the last dimension
 		x_reshaped = x.reshape(-1, x.shape[-1])
 		n_rows, n_cols = x_reshaped.shape
@@ -53,11 +98,7 @@ class RMSNormTriton(nn.Module):
 		BLOCK_SIZE = triton.next_power_of_2(n_cols)
 		# Another trick we can use is to ask the compiler to use more threads per row by
 		# increasing the number of warps (`num_warps`) over which each row is distributed.
-		num_warps = 4
-		if BLOCK_SIZE >= 2048:
-			num_warps = 8
-		if BLOCK_SIZE >= 4096:
-			num_warps = 16
+		
 		# Allocate output
 		y = torch.empty_like(x_reshaped)
 		# Enqueue kernel. The 1D launch grid is simple: we have one kernel instance per row of the input matrix
@@ -67,9 +108,86 @@ class RMSNormTriton(nn.Module):
 			x_reshaped.stride(0),
 			y.stride(0),
 			n_cols,
-			num_warps=num_warps,
 			BLOCK_SIZE=BLOCK_SIZE,
 		)
 		# Reshape the output tensor to match the original shape of x
 		y = y.reshape(*x.shape)
 		return y
+	
+	def _mean_of_squares(self, x, eps=1e-6):
+		"""
+		Compute the mean of the squares of the input tensor.
+		
+		Params:
+			- x (torch.Tensor): The input tensor of shape (B, SeqLen, ModelDim)
+			- eps (float): A small value to add to the denominator for numerical stability
+		
+		Returns:
+			- y (torch.Tensor): The mean of the squares of the input tensor of shape (B, SeqLen, 1)
+		"""
+		# Flatten the tensor except for the last dimension
+		x_reshaped = x.reshape(-1, x.shape[-1])
+		n_rows, n_cols = x_reshaped.shape
+		# The block size is the smallest power of two greater than the number of columns in `x`
+		BLOCK_SIZE = triton.next_power_of_2(n_cols)
+
+		# Allocate output
+		# Get the shape of x_reshaped and replace the last dimension with 1
+		# This dimension will be reduced with the calculation of the mean
+		new_shape = (*x_reshaped.shape[:-1], 1)
+
+		# Create a new tensor with the new shape
+		y = torch.empty(new_shape, device=x_reshaped.device, dtype=x_reshaped.dtype)
+  
+		mean_of_squares_kernel[(n_rows, )](
+			y,
+			x_reshaped,
+			x_reshaped.stride(0),
+			y.stride(0), # TODO: optimization: always 1 after the reduction
+			n_cols,
+			eps,
+			BLOCK_SIZE=BLOCK_SIZE,
+		)
+		# Reshape the output tensor, we reduced the last dimension to 1
+		y = y.reshape(*x.shape[:-1], 1)
+		return y
+	
+	def _rms(self, x, eps=1e-6):
+		"""
+		Compute the square root of the mean of the squares of the input tensor.
+		
+		Params:
+			- x (torch.Tensor): The input tensor of shape (B, SeqLen, ModelDim)
+			- eps (float): A small value to add to the denominator for numerical stability
+		
+		Returns:
+			- y (torch.Tensor): The rms of the input tensor of shape (B, SeqLen, 1)
+		"""
+
+		# Flatten the tensor except for the last dimension
+		x_reshaped = x.reshape(-1, x.shape[-1])
+		n_rows, n_cols = x_reshaped.shape
+		# The block size is the smallest power of two greater than the number of columns in `x`
+		BLOCK_SIZE = triton.next_power_of_2(n_cols)
+		
+		# Allocate output
+		# Get the shape of x_reshaped and replace the last dimension with 1
+		# This dimension will be reduced with the calculation of the mean
+		new_shape = (*x_reshaped.shape[:-1], 1)
+
+		# Create a new tensor with the new shape
+		y = torch.empty(new_shape, device=x_reshaped.device, dtype=x_reshaped.dtype)
+  
+		mean_of_squares_kernel[(n_rows, )](
+			y,
+			x_reshaped,
+			x_reshaped.stride(0),
+			y.stride(0), # TODO: optimization: always 1 after the reduction
+			n_cols,
+			eps,
+			BLOCK_SIZE=BLOCK_SIZE,
+		)
+		# Reshape the output tensor, we reduced the last dimension to 1
+		y = y.reshape(*x.shape[:-1], 1)
+		return y
+	
