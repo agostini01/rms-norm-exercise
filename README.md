@@ -68,7 +68,9 @@ Image from: https://github.com/hkproj/pytorch-llama/blob/main/Slides.pdf
 
 ## TLDR
 
-Implemented the full layer using triton. Performance is amazing.
+Implemented the full layer using triton. Performance is great. After fp16
+conversion, kernel is still memory bound. Issue may be with strided access
+leading to low l1 and l2 hit ration (less than 50%).
 
 ## Thought Process
 
@@ -95,7 +97,7 @@ Implemented the full layer using triton. Performance is amazing.
     5. inverse
     6. element_wise multiply
 7. Many of these kernels can reuse builtin libraries from [CUB](https://nvidia.github.io/cccl/cub/modules.html). We can also implement these kernels with [Triton](https://github.com/openai/triton)
-8. Decided to take the Triton approach as it is an MLIR based compiler which I wanted to learn
+8. Decided to take the Triton approach as it is an MLIR based compiler which I want to learn
 
 
 ## Future investigations / Potential Optimizations
@@ -106,10 +108,11 @@ Implemented the full layer using triton. Performance is amazing.
   - Triton compiler allocates shared memory, confirmed by using `ncu`
 - [x] Reduction can leverage a parallel implementation
 - [x] Reduction (mean) causes the stride on the last dimension to be 1, which can be hardcoded
-- [ ] Triton provides an autotunner can be used to select warp sizes (and block sizes)
+- [ ] Triton provides an autotunner that can be used to select warp sizes (and block sizes)
     - [ ] Limit block size on python driver
        - Kernel was implemented to handle ModelDims of "any" size, but this does not mean that doing so is smart
        - Big blocks may force eviction from registers
+       - Triton seem to have lunched the kernel with block dim: 128, must explore if this is optimal
 - [ ] Naive run of NCU shows 50% l2 cache hit and low Compute utilization. This indicates that we can still improve
 - [ ] Enabling half precision required to relax tolerance in tests
   - must investigate why
@@ -147,9 +150,10 @@ y-axis is scaled and should be used as a proxy
   - The performance is underwhelming.
   - With only the square krnl from triton, little re-use happens in the register file. All data goes through main memory.
 - When benchmarking a 1x4096x4096 input (in a proper profiling schedule)...
-  - We observe Good SM utilization, but poor BW.
+  - We observe Good SM utilization, but poor BW. This is expected since we can saturate the device with the `square` computation
+  - 1 multiplication per element and great sequential and coalesced access pattern.
 
-From the profiling [trace](/workspaces/rms-norm-exercise/res/artifacts/initial_impl/artifacts/rmsnorm_trace_4096x4096_4.json)
+From the profiling [trace](res/artifacts/initial_impl/artifacts/rmsnorm_trace_4096x4096_4.json):
 ```
   {
     "ph": "X", "cat": "kernel", "name": "square_kernel_0d1d2de3de4de", "pid": 0, "tid": 7,
@@ -188,8 +192,9 @@ The graphs below use the same baselines as above, but Triton represents my fused
   - Further investigation with NCU is necessary
 - We have better runtime performance accross the entire sweep
 - Implementation of fused triton kernel line 73: [rms_norm](res/artifacts/final_impl/artifacts/rmsnorm.py)
-- 
 
+
+From the profiling [trace](res/artifacts/final_impl/artifacts/rmsnorm_trace_4096x4096_4.json):
 ```
 {
   "ph": "X", "cat": "kernel", "name": "rms_norm_0d1d2d3de4de5", "pid": 0, "tid": 7,
@@ -209,15 +214,17 @@ The graphs below use the same baselines as above, but Triton represents my fused
 },
 ```
 
+
 #### NCU
 
-Since I dont have a single baseline kernel implementing the full RMSNorm, I compared my implementation in triton, with FP32 (green) and FP16 (blue). And check additional metrics on NCU.
+Since I dont have the a fused *baseline* kernel implementing the full RMSNorm, I compared my implementation in triton with FP32 (green) and FP16 (blue) datatypes, and check additional metrics on NCU.
 
 - FP16 improves upon FP32, reducing runtime from 199us to 103us.
 - Both have low SM utilization, but using a reduced datatype almost doubles the utilization.
 - Current implementation of the kernel is memory bound.
   - Cache hit ration is low. Strided access may be the problem.
 
+NCU of 4096x4096 input to [rms_norm](res/artifacts/final_impl/artifacts/rmsnorm.py) kernel, running on a v100-16GB, shown below.
 
 <details>
   <summary>Click Here to Open NCU Report for FP32 (basline) vs FP16</summary>
