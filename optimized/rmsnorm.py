@@ -68,6 +68,47 @@ def rms_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_col
 	output_ptrs = output_row_start_ptr + col_offsets
 	tl.store(output_ptrs, rms, mask=col_offsets < n_cols)
 
+
+@triton.jit
+def rms_norm(output_ptr, input_ptr, weights_ptr, stride, N, eps, DTYPE:tl.constexpr, BLOCK_SIZE: tl.constexpr):
+    """
+    RMS Norm Triton Kernel
+
+    Params:
+        - input_ptr (tensor): Pointer to Input
+        - output_ptr (tensor): Pointer to Output
+        - weights_ptr (tensor): Pointer to Scale applied to the normalized input
+        - stride (int): Stride to be applied when accessing elements in the input and output tensors
+        - N (int): Number of elements to be reduced == input_ptr.shape[-1]
+        - eps (half/float): Epsilon value added to the variance to prevent division by zero
+        - BLOCK_SIZE (constexpr): Size of the block for computation, provided as a compile-time constant
+
+    Usage:
+        _rms_norm[grid, block](x, y, self.w, input_stride , N, eps, BLOCK_SIZE)
+    """
+    row = tl.program_id(0)
+    output_ptr += row * stride
+    input_ptr += row * stride
+
+    tmp = 0
+    tmp = tl.zeros([BLOCK_SIZE], dtype=DTYPE)
+    for offset in range(0, N, BLOCK_SIZE):
+        cols = offset + tl.arange(0, BLOCK_SIZE)
+        mask = cols < N
+        a = tl.load(input_ptr + cols, mask=mask, other=0.0).to(DTYPE)
+        tmp += a * a
+    rms = tl.sqrt(tl.sum(tmp) / N + eps)
+
+    for offset in range(0, N, BLOCK_SIZE):
+        cols = offset + tl.arange(0, BLOCK_SIZE)
+        mask = cols < N
+        x = tl.load(input_ptr + cols, mask=mask, other=0.0, eviction_policy="evict_first").to(DTYPE)
+        w = tl.load(weights_ptr + cols, mask=mask)
+        x_hat = x / rms
+        y = x_hat * w
+        tl.store(output_ptr + cols, y, mask=mask)
+
+
 class RMSNormTriton(nn.Module):
 	def __init__(self, dim: int, eps: float = 1e-6):
 		super().__init__()
@@ -77,16 +118,22 @@ class RMSNormTriton(nn.Module):
 
 
 	def forward(self, x: torch.Tensor):
-		# (Dim) * (B, Seq_Len, Dim) = (B, Seq_Len, Dim)
-		return self.weight * self._norm(x.float()).type_as(x)
+		"""Generates BxSeqLen tensors of innermost dimension ModelDim."""
+		# (ModelDim) * (B, SeqLen, ModelDim) = (B, SeqLen, ModelDim)
+  
+		# For use with _square, _mean_of_squares, _rms functions
+		# return self.weight * self._norm(x.float()).type_as(x)
+  
+		# For use with _rms_norm function
+		return self._rms_norm(x, self.weight, self.eps).type_as(x)
 	
 
-	def _norm(self, x: torch.Tensor):
-
-		# Seq_Len represents the number of tokens in the sequence
-		# (B, Seq_Len, Dim) * (B, Seq_Len, 1) = (B, Seq_Len, Dim)
-		return x * torch.rsqrt(self._square(x).mean(-1, keepdim=True) + self.eps)
-	
+	# def _norm(self, x: torch.Tensor):
+	# 	# SeqLen represents the number of tokens in the sequence
+	# 	# (B, SeqLen, ModelDim) * (B, SeqLen, 1) = (B, SeqLen, ModelDim)
+	# 	# return x * torch.rsqrt(self._square(x).mean(-1, keepdim=True) + self.eps) # 2.07ms @ 4096x4096
+	# 	# return x * torch.rsqrt(self._mean_of_squares(x) + self.eps) # 1.30ms @ 4096x4096
+	# 	return 1.0 / self._rms(x, self.eps) # 1.21ms @ 4096x4096
 	
 	def _square(self, x):
 		"""Square the input tensor element-wise."""
@@ -190,4 +237,49 @@ class RMSNormTriton(nn.Module):
 		# Reshape the output tensor, we reduced the last dimension to 1
 		y = y.reshape(*x.shape[:-1], 1)
 		return y
+	
+	def _rms_norm(self, x, w, eps):
+		"""
+		Compute the RMS normalization of the input tensor.
+
+		Params:
+			- x (torch.Tensor): The input tensor of shape (B, SeqLen, ModelDim)
+			- w (torch.Tensor): The gamma parameter of shape (ModelDim)
+			- eps (half/float): A small value to add to the denominator for numerical stability
+
+		Returns:
+			- y (torch.Tensor): The normalized tensor of shape (B, SeqLen, ModelDim)
+		"""
+		# Flatten the tensor except for the last dimension
+		x_reshaped = x.reshape(-1, x.shape[-1])
+		n_rows, n_cols = x_reshaped.shape
+		M= n_rows
+		N= n_cols
+		# The block size is the smallest power of two greater than the number of columns in `x`
+		BLOCK_SIZE = triton.next_power_of_2(n_cols)
+
+		data_type = x.dtype
+		if data_type == torch.float32:
+			data_type = tl.float32
+		elif data_type == torch.float16:
+			data_type = tl.float16
+		elif data_type == torch.int64:
+			data_type = tl.int64
+		else:
+			raise ValueError(f"Unsupported data type: {data_type}")
+		
+		# Allocate output
+		y = torch.empty_like(x_reshaped)
+		rms_norm[(M,)](
+			y,
+			x_reshaped, 
+			w,
+			x_reshaped.stride(0), N, eps,
+			DTYPE=data_type,
+			BLOCK_SIZE=BLOCK_SIZE
+		)
+        
+		# Reshape the output tensor
+		y = y.reshape(*x.shape)
+		return y	
 	
