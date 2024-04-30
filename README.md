@@ -77,7 +77,7 @@ After fp16 conversion, kernel is still memory bound. Issue may be with:
 - the access pattern leading to low l2 hit ratio (less than 50%)
 - the effect of block size and avaialable registers per thread which affects occupancy
 - NCU reports up to 1.87x possible speedup if we better utilize the SMs
-- NCU reports up to 1.26x possible speedup if we leverage spacial locality during global access
+- NCU reports up to 1.26x possible speedup if we leverage spatial locality during global access
 
 
 ## Thought Process
@@ -269,7 +269,7 @@ ncu --set full -f -o prof/prof python runonce.py
 
 ## Additional Resources
 
-LLamma2 implementation from scratch:
+LLama2 implementation from scratch:
 - https://www.youtube.com/watch?v=oM4VmoabDAI&ab_channel=UmarJamil
 
 Integrating kernel in pytorch:
