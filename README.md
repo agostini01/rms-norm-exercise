@@ -66,11 +66,19 @@ Image from: https://github.com/hkproj/pytorch-llama/blob/main/Slides.pdf
 - Identify and discuss potential optimizations
 - Model size refered to as ModelDim is `>=4096` and multiple of `32`
 
+
 ## TLDR
 
-Implemented the full layer using triton. Performance is great. After fp16
-conversion, kernel is still memory bound. Issue may be with strided access
-leading to low l1 and l2 hit ration (less than 50%).
+Implemented the full layer using triton. Performance is great compared to native torch. 
+Additionaly, conversion to FP16 reduces memory requests in half, indicating that we are leveraging coalesced accesses for requesting the 2xFP16 values instead of 1xFP32. 
+
+After fp16 conversion, kernel is still memory bound. Issue may be with:
+
+- the access pattern leading to low l2 hit ratio (less than 50%)
+- the effect of block size and avaialable registers per thread which affects occupancy
+- NCU reports up to 1.87x possible speedup if we better utilize the SMs
+- NCU reports up to 1.26x possible speedup if we leverage spacial locality during global access
+
 
 ## Thought Process
 
@@ -109,13 +117,15 @@ leading to low l1 and l2 hit ration (less than 50%).
 - [x] Reduction can leverage a parallel implementation
 - [x] Reduction (mean) causes the stride on the last dimension to be 1, which can be hardcoded
 - [ ] Triton provides an autotunner that can be used to select warp sizes (and block sizes)
-    - [ ] Limit block size on python driver
-       - Kernel was implemented to handle ModelDims of "any" size, but this does not mean that doing so is smart
-       - Big blocks may force eviction from registers
-       - Triton seem to have lunched the kernel with block dim: 128, must explore if this is optimal
-- [ ] Naive run of NCU shows 50% l2 cache hit and low Compute utilization. This indicates that we can still improve
+  - [ ] Block size affects registers per thread that influences occupancy
+  - [ ] Limit block size on python driver
+    - Kernel was implemented to handle ModelDims of "any" size, but this does not mean that doing so is smart
+    - Big blocks may force eviction from registers
+    - Triton seem to have lunched the kernel with block dim: 128, must explore if this is optimal
+- [ ] Naive run of NCU shows 50% l2 cache hit and low Compute utilization.
+  - This indicates that we should investigate if these are compulsory misses or they can be improved.
 - [ ] Enabling half precision required to relax tolerance in tests
-  - must investigate why
+  - Must investigate why
 
 
 ## Notes on implementations
@@ -173,10 +183,12 @@ From the profiling [trace](res/artifacts/initial_impl/artifacts/rmsnorm_trace_40
   },
 ```
 
+
 ### Itermediate steps
 
 I implemented the other layers, fusing them on the main triton kernel. At every
 fused layer, I would see performance gains.
+
 
 ### Final implementation (as of April 22)
 
@@ -222,7 +234,7 @@ Since I dont have the a fused *baseline* kernel implementing the full RMSNorm, I
 - FP16 improves upon FP32, reducing runtime from 199us to 103us.
 - Both have low SM utilization, but using a reduced datatype almost doubles the utilization.
 - Current implementation of the kernel is memory bound.
-  - Cache hit ration is low. Strided access may be the problem.
+  - Cache hit ration is low. Strided or uncoalesced access to Device Memory may be the problem.
 
 NCU of 4096x4096 input to [rms_norm](res/artifacts/final_impl/artifacts/rmsnorm.py) kernel, running on a v100-16GB, shown below.
 
@@ -230,6 +242,7 @@ NCU of 4096x4096 input to [rms_norm](res/artifacts/final_impl/artifacts/rmsnorm.
   <summary>Click Here to Open NCU Report for FP32 (basline) vs FP16</summary>
   <img src="res/comparison-fp32-fp16.png" alt="Comparison between FP32 and FP16">
 </details>
+
 
 # Additional Resources
 
@@ -252,6 +265,7 @@ To run ncu:
 cd profiler
 ncu --set full -f -o prof/prof python runonce.py
 ```
+
 
 ## Additional Resources
 
