@@ -29,9 +29,18 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
+# # install pip packages with the requirements.txt file
+# RUN python3 -m pip install --upgrade pip
+# COPY .devcontainer/requirements.txt /tmp/requirements.txt
+# RUN pip3 install -r /tmp/requirements.txt
+
 # Cleanup
 # RUN pip3 cache purge # cache is not enabled in the nvcr image
 RUN apt autoremove -y
 RUN apt clean
 
 USER $USERNAME
+
+# Allow container to stop. See: https://github.com/microsoft/vscode-remote-release/issues/3512#issuecomment-1267053890
+# NOTE: May affect benchmarking
+CMD while sleep 120 && ps aux | egrep 'vscode.*[b]ootstrap-fork.*extensionHost.*' > /dev/null; do :; done

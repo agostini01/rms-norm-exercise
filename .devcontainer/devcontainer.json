@@ -37,6 +37,8 @@
   "postCreateCommand": [
     "nvidia-smi"
   ],
+  // Allow container to stop. See: https://github.com/microsoft/vscode-remote-release/issues/3512#issuecomment-1267053890
+  "overrideCommand": false,
   "customizations": {
     "vscode": {
       "extensions": [
